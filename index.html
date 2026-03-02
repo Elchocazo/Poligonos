@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Explorador de Polígonos Colectivo</title>
+    <title>PoliLab: Explorador de Polígonos</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -13,21 +13,39 @@
         .canvas-container {
             position: relative;
             cursor: crosshair;
-            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
-            background-size: 30px 30px;
+            background-color: #f8fafc;
+        }
+        /* Estilo para el cursor cuando se está moviendo el plano */
+        .grabbing {
+            cursor: grabbing !important;
         }
         .score-badge {
             transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #delete-popover {
+            position: absolute;
+            display: none;
+            pointer-events: auto;
+            z-index: 30;
+        }
+        #cert-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
 <body class="bg-slate-100 font-sans min-h-screen flex flex-col">
 
-    <!-- Encabezado con Nota -->
-    <header class="bg-indigo-600 text-white p-4 shadow-lg flex justify-between items-center px-8">
+    <!-- Encabezado -->
+    <header class="bg-indigo-600 text-white p-4 shadow-lg flex justify-between items-center px-8 shrink-0">
         <div>
-            <h1 class="text-2xl font-bold">🎨 Mi Gran Plano de Polígonos</h1>
-            <p class="text-xs opacity-90 text-left">Crea muchas figuras sin borrar las anteriores</p>
+            <h1 class="text-2xl font-bold">🎨 PoliLab: Mi Gran Plano</h1>
+            <p class="text-xs opacity-90">Usa el <b>clic derecho</b> o <b>Espacio</b> para mover el plano</p>
         </div>
         <div class="bg-white/20 p-2 rounded-xl text-center min-w-[120px]">
             <span class="text-xs uppercase font-bold block">Tu Nota:</span>
@@ -38,8 +56,8 @@
     <!-- Área Principal -->
     <main class="flex-grow flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
         
-        <!-- Controles y Progreso -->
-        <div class="w-full md:w-80 bg-white rounded-2xl shadow-md p-6 flex flex-col gap-4 overflow-y-auto">
+        <!-- Panel Lateral -->
+        <div class="w-full md:w-80 bg-white rounded-2xl shadow-md p-6 flex flex-col gap-4 overflow-y-auto shrink-0">
             <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
                 <div class="flex justify-between items-end mb-1">
                     <span class="text-xs font-bold text-blue-600 uppercase">Progreso del Álbum</span>
@@ -48,49 +66,77 @@
                 <div class="w-full bg-blue-200 rounded-full h-4">
                     <div id="progress-bar" class="bg-blue-600 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
                 </div>
-                <p class="text-[10px] text-blue-500 mt-2 text-center">¡Llega a 20 para sacar 5.0!</p>
-            </div>
-
-            <div class="bg-yellow-50 p-3 rounded-lg border-2 border-yellow-200 text-xs text-yellow-800">
-                <strong>¿Sabías que?</strong> Un polígono <b>Irregular</b> tiene lados o ángulos diferentes. ¡Son figuras únicas!
             </div>
 
             <button id="btn-check" class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl shadow-lg transition-all transform active:scale-95 flex flex-col items-center">
                 <span class="text-xl">🖌️ ¡Echar Pintura!</span>
-                <span class="text-[10px] opacity-80">(Solo a la figura actual)</span>
+                <span class="text-[10px] opacity-80">(Cierra la figura primero)</span>
             </button>
 
             <button id="btn-clear-current" class="text-gray-500 border border-gray-300 hover:bg-gray-100 font-bold py-2 rounded-xl text-xs transition-all">
-                Reiniciar figura actual
+                Reiniciar dibujo actual
             </button>
 
-            <div class="mt-4">
-                <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">Últimos Polígonos:</h3>
-                <div id="polygons-list" class="flex flex-wrap gap-2">
-                    <!-- Lista de nombres de polígonos creados -->
-                </div>
+            <div class="mt-2">
+                <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">Mis Polígonos:</h3>
+                <div id="polygons-list" class="flex flex-wrap gap-2 h-24 overflow-y-auto border-b pb-2"></div>
             </div>
+
+            <button id="btn-submit" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                <span>🚀</span> Enviar Trabajo
+            </button>
 
             <button id="btn-reset-all" class="mt-auto text-red-400 hover:text-red-600 text-[10px] font-bold uppercase tracking-wider">
                 Borrar todo el plano
             </button>
         </div>
 
-        <!-- Lienzo (Canvas) -->
+        <!-- Contenedor del Canvas con Scroll/Pan -->
         <div class="flex-grow bg-white rounded-2xl shadow-inner border-4 border-dashed border-slate-200 canvas-container overflow-hidden" id="canvas-wrapper">
             <canvas id="polygonCanvas"></canvas>
             
-            <!-- Overlay de información -->
+            <!-- Botón flotante para borrar -->
+            <button id="delete-popover" class="bg-red-500 text-white p-2 rounded-full shadow-xl hover:bg-red-600 transition-transform active:scale-90">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            </button>
+
+            <!-- Feedback Overlay -->
             <div id="feedback-overlay" class="absolute inset-0 pointer-events-none flex items-center justify-center transition-opacity duration-500 opacity-0 z-20">
                 <div id="feedback-message" class="bg-white/95 p-8 rounded-3xl shadow-2xl text-center max-w-md border-8"></div>
             </div>
             
-            <!-- Indicador de puntos actuales -->
+            <!-- Controles de navegación -->
+            <div class="absolute bottom-4 left-4 flex gap-2">
+                <button id="btn-center" class="bg-white/90 p-2 rounded-lg border shadow-sm text-xs font-bold hover:bg-gray-100">🎯 Centrar Vista</button>
+                <div class="bg-white/90 px-3 py-2 rounded-lg border shadow-sm text-[10px] text-gray-500">
+                    Arrastra con <b>Clic Derecho</b> para moverte
+                </div>
+            </div>
+
+            <!-- Indicador de puntos -->
             <div id="current-info" class="absolute bottom-4 right-4 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full text-xs font-bold border shadow-sm">
                 Puntos en mano: <span id="current-points-count">0</span>
             </div>
         </div>
     </main>
+
+    <!-- Modal Certificado -->
+    <div id="cert-modal" class="p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center">
+            <h2 class="text-2xl font-bold text-indigo-700 mb-4">🏆 ¡Buen Trabajo!</h2>
+            <p class="text-gray-600 text-sm mb-6">Ingresa tus datos para descargar tu certificado.</p>
+            <input type="text" id="student-name" placeholder="Tu Nombre Completo" class="w-full p-3 border-2 border-indigo-100 rounded-xl mb-3 outline-none">
+            <input type="text" id="student-grade" placeholder="Tu Grado" class="w-full p-3 border-2 border-indigo-100 rounded-xl mb-6 outline-none">
+            <div class="flex gap-2">
+                <button id="btn-cancel-submit" class="flex-1 py-3 text-gray-500 font-bold">Atrás</button>
+                <button id="btn-download-cert" class="flex-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg">Descargar</button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="hiddenCertCanvas" width="800" height="600" style="display:none"></canvas>
 
     <script>
         const canvas = document.getElementById('polygonCanvas');
@@ -99,6 +145,11 @@
         const btnCheck = document.getElementById('btn-check');
         const btnClearCurrent = document.getElementById('btn-clear-current');
         const btnResetAll = document.getElementById('btn-reset-all');
+        const btnSubmit = document.getElementById('btn-submit');
+        const btnCancelSubmit = document.getElementById('btn-cancel-submit');
+        const btnDownloadCert = document.getElementById('btn-download-cert');
+        const btnCenter = document.getElementById('btn-center');
+        const certModal = document.getElementById('cert-modal');
         const feedbackOverlay = document.getElementById('feedback-overlay');
         const feedbackMessage = document.getElementById('feedback-message');
         const albumCount = document.getElementById('album-count');
@@ -106,12 +157,19 @@
         const gradeDisplay = document.getElementById('grade-display');
         const polygonsList = document.getElementById('polygons-list');
         const currentPointsCount = document.getElementById('current-points-count');
+        const deletePopover = document.getElementById('delete-popover');
 
-        // Estado del App
-        let completedPolygons = []; // [{points: [], name: "", color: ""}]
-        let currentPoints = [];
+        // Estado de transformación (Pan & Zoom)
+        let offset = { x: 0, y: 0 };
+        let isPanning = false;
+        let startPan = { x: 0, y: 0 };
+        let isSpacePressed = false;
+
+        let completedPolygons = [];
+        let currentPoints = []; // Coordenadas del mundo (ajustadas por offset)
         let isCurrentClosed = false;
-        const CLOSE_DISTANCE = 25;
+        let selectedPolygonId = null;
+        const CLOSE_DISTANCE = 20;
         const TARGET_GOAL = 20;
 
         const polygonNames = {
@@ -133,64 +191,184 @@
         }
 
         window.addEventListener('resize', resize);
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space') isSpacePressed = true; });
+        window.addEventListener('keyup', (e) => { if(e.code === 'Space') isSpacePressed = false; });
+        
+        // Bloquear menú contextual para usar clic derecho como paneo
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
         resize();
+
+        // Convertir coordenadas de pantalla a coordenadas del "mundo"
+        function toWorld(screenX, screenY) {
+            return {
+                x: screenX - offset.x,
+                y: screenY - offset.y
+            };
+        }
+
+        // Convertir coordenadas del mundo a pantalla
+        function toScreen(worldX, worldY) {
+            return {
+                x: worldX + offset.x,
+                y: worldY + offset.y
+            };
+        }
+
+        function isPointInPoly(pt, poly) {
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, yi = poly[i].y;
+                const xj = poly[j].x, yj = poly[j].y;
+                const intersect = ((yi > pt.y) !== (yj > pt.y)) &&
+                    (pt.x < (xj - xi) * (pt.y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
 
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const worldPt = toWorld(mouseX, mouseY);
 
-            // Intentar cerrar
-            if (currentPoints.length > 2) {
-                const start = currentPoints[0];
-                const dist = Math.hypot(x - start.x, y - start.y);
-                if (dist < CLOSE_DISTANCE) {
-                    isCurrentClosed = true;
-                    draw();
-                    return;
-                }
+            // Iniciar Paneo (Clic derecho o Espacio + Clic izquierdo)
+            if (e.button === 2 || isSpacePressed) {
+                isPanning = true;
+                wrapper.classList.add('grabbing');
+                startPan = { x: mouseX - offset.x, y: mouseY - offset.y };
+                deletePopover.style.display = 'none';
+                return;
             }
 
-            if (!isCurrentClosed) {
-                currentPoints.push({ x, y });
-                currentPointsCount.innerText = currentPoints.length;
+            // Lógica normal de dibujo (Clic izquierdo)
+            if (e.button === 0) {
+                let clickedOnExisting = false;
+                for (let i = completedPolygons.length - 1; i >= 0; i--) {
+                    if (isPointInPoly(worldPt, completedPolygons[i].points)) {
+                        selectedPolygonId = completedPolygons[i].id;
+                        const poly = completedPolygons[i];
+                        const centerX = poly.points.reduce((s, p) => s + p.x, 0) / poly.points.length;
+                        const centerY = poly.points.reduce((s, p) => s + p.y, 0) / poly.points.length;
+                        
+                        const screenCenter = toScreen(centerX, centerY);
+                        deletePopover.style.left = `${screenCenter.x - 20}px`;
+                        deletePopover.style.top = `${screenCenter.y - 20}px`;
+                        deletePopover.style.display = 'block';
+                        clickedOnExisting = true;
+                        draw();
+                        break;
+                    }
+                }
+
+                if (!clickedOnExisting) {
+                    deletePopover.style.display = 'none';
+                    selectedPolygonId = null;
+
+                    if (currentPoints.length > 2) {
+                        const start = currentPoints[0];
+                        const dist = Math.hypot(worldPt.x - start.x, worldPt.y - start.y);
+                        if (dist < CLOSE_DISTANCE) {
+                            isCurrentClosed = true;
+                            draw();
+                            return;
+                        }
+                    }
+
+                    if (!isCurrentClosed) {
+                        currentPoints.push(worldPt);
+                        currentPointsCount.innerText = currentPoints.length;
+                        draw();
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isPanning) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            offset.x = mouseX - startPan.x;
+            offset.y = mouseY - startPan.y;
+            draw();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isPanning = false;
+            wrapper.classList.remove('grabbing');
+        });
+
+        deletePopover.addEventListener('click', () => {
+            if (selectedPolygonId !== null) {
+                completedPolygons = completedPolygons.filter(p => p.id !== selectedPolygonId);
+                selectedPolygonId = null;
+                deletePopover.style.display = 'none';
+                renderList();
+                updateProgress();
                 draw();
             }
         });
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Dibujar cuadrícula de fondo que se mueve
+            ctx.beginPath();
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            const gridSize = 30;
+            const startX = offset.x % gridSize;
+            const startY = offset.y % gridSize;
+            
+            for (let x = startX; x < canvas.width; x += gridSize) {
+                ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+            }
+            for (let y = startY; y < canvas.height; y += gridSize) {
+                ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+            }
+            ctx.stroke();
 
-            // 1. Dibujar polígonos ya completados
+            // 1. Dibujar polígonos completados
             completedPolygons.forEach(poly => {
                 ctx.beginPath();
                 ctx.lineWidth = 4;
-                ctx.strokeStyle = '#334155';
+                ctx.strokeStyle = (selectedPolygonId === poly.id) ? '#ef4444' : '#334155';
                 ctx.fillStyle = poly.color;
-                ctx.moveTo(poly.points[0].x, poly.points[0].y);
-                poly.points.forEach(p => ctx.lineTo(p.x, p.y));
+                
+                const p0 = toScreen(poly.points[0].x, poly.points[0].y);
+                ctx.moveTo(p0.x, p0.y);
+                poly.points.forEach(p => {
+                    const ps = toScreen(p.x, p.y);
+                    ctx.lineTo(ps.x, ps.y);
+                });
                 ctx.closePath();
                 ctx.fill();
                 ctx.stroke();
 
-                // Nombre pequeño en el centro del polígono
                 const centerX = poly.points.reduce((s, p) => s + p.x, 0) / poly.points.length;
                 const centerY = poly.points.reduce((s, p) => s + p.y, 0) / poly.points.length;
+                const cs = toScreen(centerX, centerY);
                 ctx.fillStyle = "#1e293b";
                 ctx.font = "bold 12px sans-serif";
                 ctx.textAlign = "center";
-                ctx.fillText(poly.name, centerX, centerY);
+                ctx.fillText(poly.name, cs.x, cs.y);
             });
 
-            // 2. Dibujar figura en construcción
+            // 2. Dibujar actual
             if (currentPoints.length > 0) {
                 ctx.beginPath();
                 ctx.lineWidth = 5;
-                ctx.setLineDash([5, 5]); // Línea punteada para lo que no es polígono aún
+                ctx.setLineDash([5, 5]);
                 ctx.strokeStyle = '#6366f1';
-                ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
-                currentPoints.forEach(p => ctx.lineTo(p.x, p.y));
-                
+                const p0 = toScreen(currentPoints[0].x, currentPoints[0].y);
+                ctx.moveTo(p0.x, p0.y);
+                currentPoints.forEach(p => {
+                    const ps = toScreen(p.x, p.y);
+                    ctx.lineTo(ps.x, ps.y);
+                });
                 if (isCurrentClosed) {
                     ctx.closePath();
                     ctx.setLineDash([]);
@@ -199,11 +377,10 @@
                     ctx.stroke();
                     ctx.setLineDash([]);
                 }
-
-                // Puntos
                 currentPoints.forEach((p, i) => {
+                    const ps = toScreen(p.x, p.y);
                     ctx.beginPath();
-                    ctx.arc(p.x, p.y, (i === 0 && currentPoints.length > 2 && !isCurrentClosed) ? 12 : 6, 0, Math.PI * 2);
+                    ctx.arc(ps.x, ps.y, (i === 0 && currentPoints.length > 2 && !isCurrentClosed) ? 12 : 6, 0, Math.PI * 2);
                     ctx.fillStyle = (i === 0 && currentPoints.length > 2 && !isCurrentClosed) ? '#f43f5e' : '#6366f1';
                     ctx.fill();
                     ctx.strokeStyle = 'white';
@@ -215,99 +392,100 @@
 
         btnCheck.addEventListener('click', () => {
             if (currentPoints.length < 3) {
-                showMessage("🤔 ¡Faltan puntos! Un polígono necesita al menos 3.", "warning");
+                showMessage("🤔 ¡Faltan puntos!", "warning");
                 return;
             }
-
             if (isCurrentClosed) {
-                // Guardar polígono
                 const name = getPolygonName(currentPoints.length);
                 const randomColor = colors[completedPolygons.length % colors.length];
-                
                 completedPolygons.push({
+                    id: Date.now(),
                     points: [...currentPoints],
                     name: name,
                     color: randomColor
                 });
-
-                // Actualizar UI
-                addToList(name, randomColor);
+                renderList();
                 updateProgress();
-                
-                // Reiniciar actual
                 currentPoints = [];
                 isCurrentClosed = false;
                 currentPointsCount.innerText = "0";
                 draw();
-
-                showMessage(`✨ ¡Excelente!<br>Has creado un <b>${name} Irregular</b>.<br>¡Sigue así!`, "success");
+                showMessage(`✨ ¡Genial! Un <b>${name}</b>.`, "success");
             } else {
-                spillPaint();
+                canvas.style.backgroundColor = '#fee2e2';
+                showMessage("💧 ¡Pintura derramada!<br>Cierra la figura.", "error");
+                setTimeout(() => canvas.style.backgroundColor = 'white', 1000);
             }
         });
 
-        function spillPaint() {
-            canvas.style.backgroundColor = '#fee2e2';
-            showMessage("💧 ¡Pintura derramada!<br><br>Recuerda que para ser un <b>Polígono</b> la línea debe estar cerrada.", "error");
-            setTimeout(() => canvas.style.backgroundColor = 'white', 1500);
-        }
+        btnCenter.addEventListener('click', () => {
+            offset = { x: 0, y: 0 };
+            draw();
+        });
 
         function updateProgress() {
             const count = Math.min(completedPolygons.length, TARGET_GOAL);
             albumCount.innerText = `${count} / ${TARGET_GOAL}`;
-            
             const percentage = (count / TARGET_GOAL) * 100;
             progressBar.style.width = `${percentage}%`;
-
-            // Calcular nota (Máximo 5.0)
             const grade = (count / TARGET_GOAL) * 5;
             gradeDisplay.innerText = grade.toFixed(1);
-
-            if (count === TARGET_GOAL) {
-                gradeDisplay.classList.add('text-green-500');
-                showMessage("🏆 ¡FELICIDADES!<br>Has completado tu álbum con 20 polígonos.<br>Tu nota es 5.0", "success");
-            }
         }
 
-        function addToList(name, color) {
-            const badge = document.createElement('div');
-            badge.className = "px-2 py-1 rounded text-[10px] font-bold text-white score-badge";
-            badge.style.backgroundColor = color;
-            badge.innerText = name;
-            polygonsList.prepend(badge);
+        function renderList() {
+            polygonsList.innerHTML = "";
+            completedPolygons.forEach(poly => {
+                const badge = document.createElement('div');
+                badge.className = "px-2 py-1 rounded text-[10px] font-bold text-white score-badge";
+                badge.style.backgroundColor = poly.color;
+                badge.innerText = poly.name;
+                polygonsList.prepend(badge);
+            });
         }
 
         function showMessage(htmlMsg, type) {
             feedbackMessage.innerHTML = htmlMsg;
-            let colors = "bg-white border-yellow-400 text-yellow-800";
-            if (type === "success") colors = "bg-green-50 border-green-500 text-green-800";
-            if (type === "error") colors = "bg-red-50 border-red-500 text-red-800";
-
-            feedbackMessage.className = `p-8 rounded-3xl border-8 shadow-2xl text-xl font-bold ${colors}`;
+            let cls = type === "success" ? "bg-green-50 border-green-500 text-green-800" : (type === "error" ? "bg-red-50 border-red-500 text-red-800" : "bg-white border-yellow-400 text-yellow-800");
+            feedbackMessage.className = `p-8 rounded-3xl border-8 shadow-2xl text-xl font-bold ${cls}`;
             feedbackOverlay.style.opacity = "1";
-            feedbackOverlay.style.pointerEvents = "auto";
-            setTimeout(() => {
-                feedbackOverlay.style.opacity = "0";
-                feedbackOverlay.style.pointerEvents = "none";
-            }, 3000);
+            setTimeout(() => feedbackOverlay.style.opacity = "0", 2000);
         }
 
         btnClearCurrent.addEventListener('click', () => {
-            currentPoints = [];
-            isCurrentClosed = false;
-            currentPointsCount.innerText = "0";
-            draw();
+            currentPoints = []; isCurrentClosed = false;
+            currentPointsCount.innerText = "0"; draw();
         });
 
         btnResetAll.addEventListener('click', () => {
-            if(confirm("¿Seguro que quieres borrar todas tus figuras y tu nota?")) {
-                completedPolygons = [];
-                currentPoints = [];
-                isCurrentClosed = false;
-                polygonsList.innerHTML = "";
-                updateProgress();
-                draw();
+            if(confirm("¿Borrar todo?")) {
+                completedPolygons = []; currentPoints = []; offset = {x:0, y:0};
+                isCurrentClosed = false; renderList(); updateProgress(); draw();
             }
+        });
+
+        btnSubmit.addEventListener('click', () => certModal.style.display = 'flex');
+        btnCancelSubmit.addEventListener('click', () => certModal.style.display = 'none');
+
+        btnDownloadCert.addEventListener('click', () => {
+            const name = document.getElementById('student-name').value;
+            const grade = document.getElementById('student-grade').value;
+            if (!name || !grade) return alert("Completa tus datos");
+            const certCanvas = document.getElementById('hiddenCertCanvas');
+            const cctx = certCanvas.getContext('2d');
+            cctx.fillStyle = "#ffffff"; cctx.fillRect(0, 0, 800, 600);
+            cctx.strokeStyle = "#4f46e5"; cctx.lineWidth = 20; cctx.strokeRect(40, 40, 720, 520);
+            cctx.textAlign = "center"; cctx.fillStyle = "#4f46e5"; cctx.font = "bold 40px Arial";
+            cctx.fillText("CERTIFICADO DE POLILAB", 400, 130);
+            cctx.fillStyle = "#1e293b"; cctx.font = "24px Arial";
+            cctx.fillText("Reconocimiento para:", 400, 200);
+            cctx.font = "bold 34px Courier New"; cctx.fillText(name.toUpperCase(), 400, 260);
+            cctx.font = "20px Arial"; cctx.fillText(`Grado: ${grade}`, 400, 310);
+            cctx.font = "bold 18px Arial"; cctx.fillText("NOTA FINAL", 400, 395);
+            cctx.font = "bold 60px Arial"; cctx.fillText(gradeDisplay.innerText, 400, 460);
+            const link = document.createElement('a');
+            link.download = `Certificado_${name}.png`;
+            link.href = certCanvas.toDataURL(); link.click();
+            certModal.style.display = 'none';
         });
 
     </script>

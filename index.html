@@ -10,11 +10,54 @@
         body { touch-action: none; overflow: hidden; }
         .canvas-container { position: relative; cursor: crosshair; background-color: #f8fafc; }
         .tab-active { border-bottom: 4px solid #4f46e5; color: #4f46e5; font-weight: bold; }
-        #reward-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
-        .sticker-card { transition: all 0.3s ease; }
+        #reward-modal, #pets-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
+        .sticker-card, .pet-card { transition: all 0.3s ease; cursor: pointer; }
         .locked { filter: grayscale(1) opacity(0.5); }
         .badge-anim { animation: bounce 2s infinite; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        
+        /* Animación de la mascota en pantalla */
+        #active-pet-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            z-index: 40;
+        }
+        .speech-bubble {
+            background: white;
+            border: 2px solid #4f46e5;
+            border-radius: 15px;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #4f46e5;
+            max-width: 180px;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            right: 20px;
+            border-width: 10px 10px 0;
+            border-style: solid;
+            border-color: #4f46e5 transparent;
+        }
+        .pet-sprite {
+            font-size: 60px;
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.2));
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
     </style>
 </head>
 <body class="bg-slate-100 font-sans min-h-screen flex flex-col">
@@ -53,7 +96,7 @@
     <main class="flex-grow flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
         
         <!-- Panel Lateral -->
-        <div class="w-full md:w-72 bg-white rounded-3xl shadow-md p-5 flex flex-col gap-4 shrink-0 border-t-4 border-indigo-500">
+        <div class="w-full md:w-72 bg-white rounded-3xl shadow-md p-5 flex flex-col gap-4 shrink-0 border-t-4 border-indigo-500 overflow-y-auto">
             
             <!-- Controles 2do Grado -->
             <div id="controls-explorer" class="flex flex-col gap-4">
@@ -68,9 +111,14 @@
                     <span class="text-[9px] opacity-80">(Gana estrellas por cada lado)</span>
                 </button>
 
-                <button id="btn-open-rewards" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 rounded-2xl shadow-md flex items-center justify-center gap-2 mt-2">
-                    🎁 Ver Mis Premios
-                </button>
+                <div class="grid grid-cols-1 gap-2 mt-2">
+                    <button id="btn-open-rewards" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 rounded-2xl shadow-md flex items-center justify-center gap-2">
+                        🏆 Medallas
+                    </button>
+                    <button id="btn-open-pets" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-2xl shadow-md flex items-center justify-center gap-2">
+                        🐾 Mascotas
+                    </button>
+                </div>
             </div>
 
             <!-- Controles 6to Grado -->
@@ -97,6 +145,12 @@
         <div class="flex-grow bg-white rounded-[2.5rem] shadow-inner border-8 border-slate-50 canvas-container overflow-hidden" id="canvas-wrapper">
             <canvas id="polygonCanvas"></canvas>
             
+            <!-- Mascota Activa en Pantalla -->
+            <div id="active-pet-container" class="hidden">
+                <div class="speech-bubble" id="pet-speech">¡Hola! Vamos a dibujar.</div>
+                <div class="pet-sprite" id="pet-display">🐱</div>
+            </div>
+
             <!-- Mensaje Feedback -->
             <div id="feedback-overlay" class="absolute inset-0 pointer-events-none flex items-center justify-center transition-opacity duration-500 opacity-0 z-50">
                 <div id="feedback-message" class="bg-white/90 backdrop-blur p-8 rounded-[3rem] shadow-2xl text-center border-4"></div>
@@ -109,24 +163,35 @@
         </div>
     </main>
 
-    <!-- MODAL DE PREMIOS -->
+    <!-- MODAL DE PREMIOS (MEDALLAS) -->
     <div id="reward-modal">
         <div class="bg-white rounded-[3rem] shadow-2xl p-10 max-w-xl w-full mx-4 border-8 border-pink-100">
             <div class="flex justify-between items-center mb-8">
                 <h2 class="text-3xl font-black text-pink-600">🏆 Mis Medallas</h2>
                 <button onclick="document.getElementById('reward-modal').style.display='none'" class="bg-slate-100 p-2 rounded-full hover:bg-slate-200">✕</button>
             </div>
+            <div id="stickers-grid" class="grid grid-cols-3 gap-6 h-72 overflow-y-auto pr-2"></div>
+            <div class="mt-8 p-4 bg-yellow-50 rounded-2xl border-2 border-yellow-200 flex justify-between items-center">
+                <span class="text-xl font-black text-yellow-800"><span id="reward-stars">0</span> ⭐</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE MASCOTAS -->
+    <div id="pets-modal">
+        <div class="bg-white rounded-[3rem] shadow-2xl p-10 max-w-2xl w-full mx-4 border-8 border-orange-100">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-black text-orange-600">🐾 Mascotas Sabias</h2>
+                <button onclick="document.getElementById('pets-modal').style.display='none'" class="bg-slate-100 p-2 rounded-full hover:bg-slate-200">✕</button>
+            </div>
             
-            <div id="stickers-grid" class="grid grid-cols-3 gap-6 h-72 overflow-y-auto pr-2">
+            <div id="pets-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-4 h-80 overflow-y-auto pr-2">
                 <!-- Se llena con JS -->
             </div>
 
-            <div class="mt-8 p-6 bg-yellow-50 rounded-3xl border-2 border-yellow-200 flex justify-between items-center">
-                <div>
-                    <span class="text-sm font-bold text-yellow-700 block uppercase">Tienes</span>
-                    <span class="text-3xl font-black text-yellow-800"><span id="reward-stars">0</span> ⭐</span>
-                </div>
-                <p class="text-xs text-yellow-600 font-medium text-right max-w-[150px]">¡Dibuja figuras complejas para ganar más estrellas!</p>
+            <div class="mt-6 p-4 bg-orange-50 rounded-2xl border-2 border-orange-200 flex justify-between items-center">
+                <span class="text-xl font-black text-orange-800"><span id="pet-stars-display">0</span> ⭐</span>
+                <p class="text-xs text-orange-600 font-bold">¡Desbloquea amigos para recibir consejos!</p>
             </div>
         </div>
     </div>
@@ -143,7 +208,9 @@
                 points: [],
                 shapes: [],
                 isClosed: false,
-                unlocked: [0]
+                unlockedMedals: [0],
+                unlockedPets: [],
+                activePet: null
             };
 
             const PREMIOS = [
@@ -153,6 +220,39 @@
                 { id: 3, name: "Estrella", icon: "🌟", cost: 100 },
                 { id: 4, name: "Maestro", icon: "👑", cost: 250 },
                 { id: 5, name: "Arquitecto", icon: "🏰", cost: 500 }
+            ];
+
+            const MASCOTAS = [
+                { id: 0, name: "Gatito", icon: "🐱", cost: 50 },
+                { id: 1, name: "Perrito", icon: "🐶", cost: 100 },
+                { id: 2, name: "Conejito", icon: "🐰", cost: 150 },
+                { id: 3, name: "Zorrito", icon: "🦊", cost: 250 },
+                { id: 4, name: "Osito", icon: "🐻", cost: 400 },
+                { id: 5, name: "Panda", icon: "🐼", cost: 600 },
+                { id: 6, name: "León", icon: "🦁", cost: 900 },
+                { id: 7, name: "Tigre", icon: "🐯", cost: 1200 },
+                { id: 8, name: "Dino", icon: "🦖", cost: 1600 },
+                { id: 9, name: "Unicornio", icon: "🦄", cost: 2100 },
+                { id: 10, name: "Búho Sabio", icon: "🦉", cost: 2700 },
+                { id: 11, name: "Mago", icon: "🧙", cost: 3500 },
+                { id: 12, name: "Robot", icon: "🤖", cost: 4500 },
+                { id: 13, name: "Alienígena", icon: "👽", cost: 6000 },
+                { id: 14, name: "Dragón", icon: "🐲", cost: 8000 }
+            ];
+
+            const CONSEJOS = [
+                "¡Un triángulo tiene 3 lados!",
+                "¡Cierra tu figura uniendo los puntos!",
+                "¿Sabías que un cuadrado tiene 4 lados iguales?",
+                "¡Sigue así, vas por buen camino!",
+                "Un polígono es una figura cerrada.",
+                "¡El círculo no es un polígono!",
+                "¡Dibuja un hexágono, tiene 6 lados!",
+                "¡Cada punto se llama vértice!",
+                "¡Gana estrellas dibujando más lados!",
+                "¡Las figuras grandes son geniales!",
+                "¡Prueba a hacer un pentágono de 5 lados!",
+                "¡Usa colores diferentes para cada figura!"
             ];
 
             function resize() {
@@ -170,7 +270,6 @@
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
 
-                // Detectar si cierra
                 if (state.points.length >= 3) {
                     const d = Math.hypot(x - state.points[0].x, y - state.points[0].y);
                     if (d < 20) {
@@ -184,14 +283,13 @@
                 render();
             });
 
-            // Guardar figura y ganar puntos
+            // Guardar figura
             document.getElementById('btn-save-shape').onclick = () => {
                 if (!state.isClosed) {
-                    showFeedback("¡Primero une los puntos con el círculo rojo!", "border-yellow-400 text-yellow-600");
+                    showFeedback("¡Une los puntos con el círculo rojo!", "border-yellow-400 text-yellow-600");
                     return;
                 }
 
-                // Cálculo de estrellas: 10 base + 5 por cada lado extra después del triángulo
                 const starsGained = 10 + (state.points.length - 3) * 5;
                 state.stars += starsGained;
                 state.grade = Math.min(5, state.grade + 0.2);
@@ -208,7 +306,7 @@
                     colors: ['#fbbf24', '#f59e0b', '#ffffff']
                 });
 
-                showFeedback(`⭐ ¡+${starsGained} Estrellas!<br><span class="text-sm">Figura guardada</span>`, "border-green-500 text-green-700");
+                showFeedback(`⭐ ¡+${starsGained} Estrellas!`, "border-green-500 text-green-700");
                 
                 state.points = [];
                 state.isClosed = false;
@@ -220,64 +318,48 @@
             function updateUI() {
                 document.getElementById('stars-count').innerText = state.stars;
                 document.getElementById('grade-display').innerText = state.grade.toFixed(1);
+                document.getElementById('pet-stars-display').innerText = state.stars;
+                document.getElementById('reward-stars').innerText = state.stars;
             }
 
             function render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                // Cuadrícula
                 ctx.beginPath(); ctx.strokeStyle = "#f1f5f9";
                 for(let x=0; x<canvas.width; x+=40) { ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); }
                 for(let y=0; y<canvas.height; y+=40) { ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); }
                 ctx.stroke();
 
-                // Figuras guardadas
                 state.shapes.forEach(s => {
                     ctx.beginPath();
-                    ctx.fillStyle = s.color + "44";
-                    ctx.strokeStyle = s.color;
-                    ctx.lineWidth = 2;
+                    ctx.fillStyle = s.color + "44"; ctx.strokeStyle = s.color; ctx.lineWidth = 2;
                     ctx.moveTo(s.points[0].x, s.points[0].y);
                     s.points.forEach(p => ctx.lineTo(p.x, p.y));
                     ctx.closePath(); ctx.fill(); ctx.stroke();
                 });
 
-                // Trazo actual
                 if (state.points.length > 0) {
                     ctx.beginPath();
                     ctx.setLineDash(state.isClosed ? [] : [5, 5]);
-                    ctx.strokeStyle = "#4f46e5";
-                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = "#4f46e5"; ctx.lineWidth = 3;
                     ctx.moveTo(state.points[0].x, state.points[0].y);
                     state.points.forEach(p => ctx.lineTo(p.x, p.y));
-                    if (state.isClosed) {
-                        ctx.closePath();
-                        ctx.fillStyle = "#4f46e522";
-                        ctx.fill();
-                    }
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-
+                    if (state.isClosed) { ctx.closePath(); ctx.fillStyle = "#4f46e522"; ctx.fill(); }
+                    ctx.stroke(); ctx.setLineDash([]);
                     state.points.forEach((p, i) => {
-                        ctx.beginPath();
-                        ctx.arc(p.x, p.y, i === 0 ? 8 : 4, 0, Math.PI*2);
-                        ctx.fillStyle = i === 0 ? "#ef4444" : "#4f46e5";
-                        ctx.fill();
+                        ctx.beginPath(); ctx.arc(p.x, p.y, i === 0 ? 8 : 4, 0, Math.PI*2);
+                        ctx.fillStyle = i === 0 ? "#ef4444" : "#4f46e5"; ctx.fill();
                     });
                 }
             }
 
-            // Tienda de Premios
+            // --- Modales Recompensas ---
             document.getElementById('btn-open-rewards').onclick = () => {
                 const grid = document.getElementById('stickers-grid');
                 grid.innerHTML = "";
-                document.getElementById('reward-stars').innerText = state.stars;
-
                 PREMIOS.forEach(p => {
-                    const isUnlocked = state.unlocked.includes(p.id);
+                    const isUnlocked = state.unlockedMedals.includes(p.id);
                     const card = document.createElement('div');
                     card.className = `p-4 rounded-3xl border-2 text-center sticker-card ${isUnlocked ? 'bg-pink-50 border-pink-200' : 'bg-slate-50 border-slate-100 locked'}`;
-                    
                     card.innerHTML = `
                         <div class="text-4xl mb-2 ${isUnlocked ? 'badge-anim' : ''}">${p.icon}</div>
                         <div class="text-[10px] font-black uppercase text-slate-500">${p.name}</div>
@@ -290,15 +372,73 @@
 
             window.buyPremio = (id, cost) => {
                 if (state.stars >= cost) {
-                    state.stars -= cost;
-                    state.unlocked.push(id);
-                    updateUI();
-                    document.getElementById('btn-open-rewards').click();
+                    state.stars -= cost; state.unlockedMedals.push(id);
+                    updateUI(); document.getElementById('btn-open-rewards').onclick();
                     confetti({ colors: ['#ec4899', '#ffffff'] });
-                } else {
-                    alert("¡Te faltan estrellas! Sigue dibujando figuras.");
                 }
             };
+
+            // --- Sistema de Mascotas ---
+            document.getElementById('btn-open-pets').onclick = () => {
+                const grid = document.getElementById('pets-grid');
+                grid.innerHTML = "";
+                MASCOTAS.forEach(p => {
+                    const isUnlocked = state.unlockedPets.includes(p.id);
+                    const isActive = state.activePet === p.id;
+                    const card = document.createElement('div');
+                    card.className = `p-3 rounded-2xl border-2 text-center pet-card ${isUnlocked ? (isActive ? 'bg-orange-200 border-orange-500' : 'bg-orange-50 border-orange-200') : 'bg-slate-50 border-slate-100 locked'}`;
+                    
+                    card.onclick = () => {
+                        if (isUnlocked) {
+                            state.activePet = p.id;
+                            updatePetDisplay();
+                            document.getElementById('btn-open-pets').onclick();
+                        }
+                    };
+
+                    card.innerHTML = `
+                        <div class="text-3xl mb-1">${p.icon}</div>
+                        <div class="text-[9px] font-bold truncate">${p.name}</div>
+                        ${!isUnlocked ? `<button onclick="event.stopPropagation(); buyPet(${p.id}, ${p.cost})" class="mt-1 bg-orange-500 text-white text-[8px] px-2 py-1 rounded-full font-bold w-full">${p.cost}⭐</button>` : `<span class="text-[8px] ${isActive ? 'text-orange-700 font-bold' : 'text-orange-400'}">${isActive ? 'ACTIVO' : 'ELEGIR'}</span>`}
+                    `;
+                    grid.appendChild(card);
+                });
+                document.getElementById('pets-modal').style.display = 'flex';
+            };
+
+            window.buyPet = (id, cost) => {
+                if (state.stars >= cost) {
+                    state.stars -= cost;
+                    state.unlockedPets.push(id);
+                    state.activePet = id;
+                    updateUI();
+                    updatePetDisplay();
+                    document.getElementById('btn-open-pets').onclick();
+                    confetti({ colors: ['#f97316', '#ffffff'] });
+                } else {
+                    alert("¡Necesitas más estrellas para este amigo!");
+                }
+            };
+
+            function updatePetDisplay() {
+                const container = document.getElementById('active-pet-container');
+                if (state.activePet !== null) {
+                    container.classList.remove('hidden');
+                    const pet = MASCOTAS.find(m => m.id === state.activePet);
+                    document.getElementById('pet-display').innerText = pet.icon;
+                    rotateConsejos();
+                }
+            }
+
+            function rotateConsejos() {
+                if (state.activePet === null) return;
+                const bubble = document.getElementById('pet-speech');
+                const randomConsejo = CONSEJOS[Math.floor(Math.random() * CONSEJOS.length)];
+                bubble.innerText = randomConsejo;
+            }
+
+            // Intervalo de consejos cada 10 segundos
+            setInterval(rotateConsejos, 10000);
 
             function showFeedback(html, classes) {
                 const ov = document.getElementById('feedback-overlay');
@@ -309,7 +449,7 @@
                 setTimeout(() => ov.style.opacity = "0", 2500);
             }
 
-            // Tabs
+            // Tabs y Reset
             document.getElementById('tab-explorer').onclick = () => {
                 document.getElementById('controls-explorer').classList.remove('hidden');
                 document.getElementById('controls-geometry').classList.add('hidden');
@@ -322,9 +462,8 @@
                 document.getElementById('tab-geometry').className = "px-6 py-3 tab-active";
                 document.getElementById('tab-explorer').className = "px-6 py-3 text-gray-500";
             };
-
             document.getElementById('btn-reset-all').onclick = () => {
-                if(confirm("¿Borrar todos tus dibujos?")) { state.shapes = []; state.points = []; render(); }
+                if(confirm("¿Borrar dibujos?")) { state.shapes = []; state.points = []; render(); }
             };
         });
     </script>

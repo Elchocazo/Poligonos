@@ -3,168 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PoliLab: Geometría y Recompensas</title>
+    <title>PoliLab: Geometría Creativa</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
         body { touch-action: none; overflow: hidden; }
         .canvas-container { position: relative; cursor: crosshair; background-color: #f8fafc; }
         .tab-active { border-bottom: 4px solid #4f46e5; color: #4f46e5; font-weight: bold; }
-        #cert-modal, #reward-modal, #challenge-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
+        #reward-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; }
         .sticker-card { transition: all 0.3s ease; }
-        .sticker-card:hover { transform: translateY(-5px); }
         .locked { filter: grayscale(1) opacity(0.5); }
+        .badge-anim { animation: bounce 2s infinite; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
     </style>
 </head>
 <body class="bg-slate-100 font-sans min-h-screen flex flex-col">
 
-    <!-- Encabezado -->
+    <!-- Encabezado con Marcadores -->
     <header class="bg-white shadow-md shrink-0">
         <div class="bg-indigo-600 text-white p-4 flex justify-between items-center px-8">
-            <div class="flex items-center gap-4">
-                <div class="bg-white p-2 rounded-lg text-indigo-600 text-2xl">📐</div>
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">🎨</span>
                 <div>
-                    <h1 class="text-xl font-bold">PoliLab: ¡Misión Geometría!</h1>
-                    <p class="text-[10px] uppercase tracking-widest opacity-80">Aprende Jugando</p>
+                    <h1 class="text-xl font-bold leading-none">PoliLab Creativo</h1>
+                    <p class="text-[10px] uppercase opacity-70 tracking-tighter">Dibuja y Colecciona</p>
                 </div>
             </div>
-            <div class="flex gap-4">
-                <div class="bg-yellow-400 text-yellow-900 p-2 rounded-xl text-center min-w-[100px] shadow-inner">
-                    <span class="text-[10px] font-bold block">ESTRELLAS ⭐</span>
+            
+            <div class="flex gap-3">
+                <!-- Contador de Estrellas -->
+                <div class="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg border-b-4 border-yellow-600">
+                    <span class="text-xl">⭐</span>
                     <span id="stars-count" class="text-2xl font-black">0</span>
                 </div>
-                <div class="bg-white/20 p-2 rounded-xl text-center min-w-[100px]">
-                    <span class="text-[10px] font-bold block text-white">TU NOTA</span>
-                    <span id="grade-display" class="text-2xl font-black text-white">0.0</span>
+                <!-- Nota / Nivel -->
+                <div class="bg-white/20 px-4 py-2 rounded-2xl text-center min-w-[80px]">
+                    <span class="text-[9px] font-bold block text-white uppercase">Tu Nota</span>
+                    <span id="grade-display" class="text-xl font-black text-white">0.0</span>
                 </div>
             </div>
         </div>
+        
         <div class="flex justify-center gap-8 bg-white border-b">
-            <button id="tab-explorer" class="px-6 py-3 tab-active">🎒 Retos Explorador (2°)</button>
-            <button id="tab-geometry" class="px-6 py-3 text-gray-500">📐 Laboratorio Maestro (6°)</button>
+            <button id="tab-explorer" class="px-6 py-3 tab-active">🎨 Dibujo Libre (2°)</button>
+            <button id="tab-geometry" class="px-6 py-3 text-gray-500">📐 Geometría Pro (6°)</button>
         </div>
     </header>
 
-    <!-- Área Principal -->
     <main class="flex-grow flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
         
         <!-- Panel Lateral -->
-        <div class="w-full md:w-80 bg-white rounded-2xl shadow-md p-6 flex flex-col gap-4 overflow-y-auto shrink-0">
+        <div class="w-full md:w-72 bg-white rounded-3xl shadow-md p-5 flex flex-col gap-4 shrink-0 border-t-4 border-indigo-500">
             
-            <!-- Modo Reto Explorador (2°) -->
+            <!-- Controles 2do Grado -->
             <div id="controls-explorer" class="flex flex-col gap-4">
-                <div id="mission-card" class="bg-gradient-to-br from-blue-500 to-indigo-600 p-4 rounded-2xl text-white shadow-lg">
-                    <h3 class="text-xs font-bold uppercase mb-2">Misión Actual:</h3>
-                    <p id="mission-text" class="text-lg font-bold leading-tight">¡Pulsa "Nueva Misión" para empezar!</p>
+                <div class="bg-blue-50 p-4 rounded-2xl border-2 border-blue-100 text-center">
+                    <p class="text-xs text-blue-600 font-bold uppercase mb-1">¡Dibuja una figura!</p>
+                    <div class="text-3xl font-black text-blue-700" id="current-points-display">0</div>
+                    <p class="text-[10px] text-blue-400 uppercase">Puntos marcados</p>
                 </div>
-                
-                <button id="btn-new-mission" class="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-3 rounded-xl shadow-md transition-all">
-                    🎲 Nueva Misión (+10⭐)
+
+                <button id="btn-save-shape" class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-transform active:scale-95 flex flex-col items-center">
+                    <span class="text-lg">✨ ¡Completar!</span>
+                    <span class="text-[9px] opacity-80">(Gana estrellas por cada lado)</span>
                 </button>
 
-                <div class="flex flex-col gap-2 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                    <span class="text-[10px] font-bold text-blue-500 uppercase">Estado del dibujo:</span>
-                    <div class="flex justify-between items-center">
-                        <span id="current-points-count" class="text-2xl font-black text-blue-700">0</span>
-                        <span class="text-xs text-blue-400">Puntos colocados</span>
-                    </div>
-                </div>
-
-                <button id="btn-check-drawing" class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl shadow-lg transition-all transform active:scale-95 flex flex-col items-center">
-                    <span class="text-xl">✨ ¡Listo, lo terminé!</span>
+                <button id="btn-open-rewards" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 rounded-2xl shadow-md flex items-center justify-center gap-2 mt-2">
+                    🎁 Ver Mis Premios
                 </button>
             </div>
 
-            <!-- Modo Geometría (6°) -->
+            <!-- Controles 6to Grado -->
             <div id="controls-geometry" class="hidden flex flex-col gap-4">
-                <!-- (Mismo contenido que antes, mantenido para funcionalidad) -->
-                <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-200">
-                    <label class="text-xs font-bold text-indigo-600 block mb-1">Lados:</label>
-                    <input type="range" id="reg-sides" min="3" max="12" value="5" class="w-full">
-                    <label class="text-xs font-bold text-indigo-600 block mt-2">Tamaño:</label>
-                    <input type="range" id="reg-size" min="30" max="120" value="60" class="w-full">
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase block mb-2 text-center">Configurar Polígono</label>
+                    <input type="range" id="reg-sides" min="3" max="12" value="6" class="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer">
+                    <div class="flex justify-between text-[10px] text-slate-400 mt-1"><span>3</span><span>12 lados</span></div>
                 </div>
-                <button id="btn-add-regular" class="bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-md">Generar para Calcular</button>
-                <div id="geometry-challenge" class="hidden space-y-2 bg-slate-50 p-3 rounded-xl border">
-                    <input type="number" id="input-p" class="w-full p-2 border rounded" placeholder="Perímetro (cm)">
-                    <input type="number" id="input-ap" class="w-full p-2 border rounded" placeholder="Apotema (cm)">
-                    <input type="number" id="input-a" class="w-full p-2 border rounded" placeholder="Área (cm²)">
-                    <button id="btn-verify" class="w-full bg-orange-500 text-white py-2 rounded">Verificar</button>
+                <button id="btn-add-regular" class="bg-indigo-600 text-white font-bold py-3 rounded-2xl shadow-md hover:bg-indigo-700">Calcular Perímetro/Área</button>
+                <div id="geometry-challenge" class="hidden space-y-2">
+                    <input type="number" id="input-p" class="w-full p-3 bg-indigo-50 border-2 border-indigo-100 rounded-xl" placeholder="Perímetro">
+                    <input type="number" id="input-a" class="w-full p-3 bg-indigo-50 border-2 border-indigo-100 rounded-xl" placeholder="Área">
+                    <button id="btn-verify" class="w-full bg-orange-500 text-white py-2 rounded-xl font-bold">Verificar</button>
                 </div>
             </div>
 
-            <!-- Recompensas y Sistema Común -->
-            <div class="mt-auto border-t pt-4">
-                <button id="btn-open-rewards" class="w-full bg-pink-100 hover:bg-pink-200 text-pink-600 font-bold py-2 rounded-xl mb-3 flex items-center justify-center gap-2">
-                    🎁 Cofre de Recompensas
-                </button>
-                <button id="btn-submit" class="w-full bg-indigo-500 text-white font-bold py-3 rounded-xl">🚀 Obtener Diploma</button>
-                <button id="btn-reset-all" class="w-full text-red-400 text-[10px] font-bold uppercase mt-4">Reiniciar Todo</button>
+            <div class="mt-auto space-y-2">
+                <button id="btn-reset-all" class="w-full text-red-400 text-[10px] font-bold uppercase py-2">Borrar Lienzo</button>
             </div>
         </div>
 
-        <!-- Lienzo -->
-        <div class="flex-grow bg-white rounded-3xl shadow-inner border-8 border-slate-100 canvas-container overflow-hidden" id="canvas-wrapper">
+        <!-- Canvas -->
+        <div class="flex-grow bg-white rounded-[2.5rem] shadow-inner border-8 border-slate-50 canvas-container overflow-hidden" id="canvas-wrapper">
             <canvas id="polygonCanvas"></canvas>
             
+            <!-- Mensaje Feedback -->
             <div id="feedback-overlay" class="absolute inset-0 pointer-events-none flex items-center justify-center transition-opacity duration-500 opacity-0 z-50">
-                <div id="feedback-message" class="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-md border-8"></div>
+                <div id="feedback-message" class="bg-white/90 backdrop-blur p-8 rounded-[3rem] shadow-2xl text-center border-4"></div>
             </div>
 
-            <div class="absolute bottom-6 right-6">
-                <button id="btn-clear-canvas" class="bg-white/90 p-3 rounded-full shadow-lg border hover:bg-red-50 text-red-500" title="Limpiar trazo">
-                    🗑️
-                </button>
+            <!-- Ayuda Visual -->
+            <div class="absolute bottom-6 left-6 text-[10px] text-slate-400 bg-white/50 px-3 py-1 rounded-full italic">
+                Cierra la figura pulsando el primer punto rojo
             </div>
         </div>
     </main>
 
-    <!-- MODAL: PREGUNTAS RETO (2°) -->
-    <div id="challenge-modal">
-        <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full">
-            <h2 class="text-2xl font-black text-indigo-700 mb-2">¡Analicemos tu figura!</h2>
-            <p class="text-sm text-gray-500 mb-6">Responde correctamente para ganar tus estrellas.</p>
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="font-bold text-gray-700 block mb-2">1. ¿Qué figura dibujaste?</label>
-                    <select id="select-shape-name" class="w-full p-3 bg-slate-100 rounded-xl outline-none">
-                        <option value="3">Triángulo (3 lados)</option>
-                        <option value="4">Cuadrilátero (4 lados)</option>
-                        <option value="5">Pentágono (5 lados)</option>
-                        <option value="6">Hexágono (6 lados)</option>
-                        <option value="7">Heptágono (7 lados)</option>
-                        <option value="8">Octágono (8 lados)</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="font-bold text-gray-700 block mb-2">2. ¿Es regular o irregular?</label>
-                    <div class="grid grid-cols-2 gap-3">
-                        <button class="type-btn p-3 border-2 rounded-xl font-bold" data-type="regular">Regular<br><span class="text-[10px] font-normal">Lados iguales</span></button>
-                        <button class="type-btn p-3 border-2 rounded-xl font-bold" data-type="irregular">Irregular<br><span class="text-[10px] font-normal">Lados diferentes</span></button>
-                    </div>
-                </div>
-            </div>
-            
-            <button id="btn-confirm-challenge" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl mt-8 shadow-xl">
-                ¡Confirmar respuestas!
-            </button>
-        </div>
-    </div>
-
-    <!-- MODAL: TIENDA DE RECOMPENSAS -->
+    <!-- MODAL DE PREMIOS -->
     <div id="reward-modal">
-        <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-2xl w-full">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-3xl font-black text-pink-600">Mis Medallas</h2>
-                <button onclick="document.getElementById('reward-modal').style.display='none'" class="text-gray-400">Cerrar</button>
+        <div class="bg-white rounded-[3rem] shadow-2xl p-10 max-w-xl w-full mx-4 border-8 border-pink-100">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-black text-pink-600">🏆 Mis Medallas</h2>
+                <button onclick="document.getElementById('reward-modal').style.display='none'" class="bg-slate-100 p-2 rounded-full hover:bg-slate-200">✕</button>
             </div>
-            <div id="stickers-grid" class="grid grid-cols-3 gap-4 h-80 overflow-y-auto p-2">
-                <!-- Stickers se cargan aquí -->
+            
+            <div id="stickers-grid" class="grid grid-cols-3 gap-6 h-72 overflow-y-auto pr-2">
+                <!-- Se llena con JS -->
             </div>
-            <div class="mt-6 p-4 bg-yellow-50 rounded-2xl border-2 border-yellow-200 flex justify-between items-center">
-                <span class="font-bold text-yellow-700">Tus estrellas: <span id="reward-stars">0</span> ⭐</span>
-                <p class="text-[10px] text-yellow-600">¡Gana retos para desbloquear medallas!</p>
+
+            <div class="mt-8 p-6 bg-yellow-50 rounded-3xl border-2 border-yellow-200 flex justify-between items-center">
+                <div>
+                    <span class="text-sm font-bold text-yellow-700 block uppercase">Tienes</span>
+                    <span class="text-3xl font-black text-yellow-800"><span id="reward-stars">0</span> ⭐</span>
+                </div>
+                <p class="text-xs text-yellow-600 font-medium text-right max-w-[150px]">¡Dibuja figuras complejas para ganar más estrellas!</p>
             </div>
         </div>
     </div>
@@ -175,244 +137,194 @@
             const ctx = canvas.getContext('2d');
             const wrapper = document.getElementById('canvas-wrapper');
             
-            // Estado Global
             let state = {
-                mode: 'explorer',
                 stars: 0,
                 grade: 0,
-                completed: [],
-                currentPoints: [],
+                points: [],
+                shapes: [],
                 isClosed: false,
-                offset: {x:0, y:0},
-                currentMission: null,
-                unlockedStickers: [0], // El primero es gratis
-                selectedType: null
+                unlocked: [0]
             };
 
-            const STICKERS = [
-                { id: 0, name: "Principiante", icon: "🌱", price: 0 },
-                { id: 1, name: "Arquitecto", icon: "🏛️", price: 30 },
-                { id: 2, name: "Genio", icon: "🧠", price: 60 },
-                { id: 3, name: "Explorador", icon: "🧭", price: 100 },
-                { id: 4, name: "Maestro", icon: "👑", price: 200 }
+            const PREMIOS = [
+                { id: 0, name: "Primer Trazo", icon: "🌱", cost: 0 },
+                { id: 1, name: "Dibujante", icon: "🖍️", cost: 20 },
+                { id: 2, name: "Geómetra", icon: "📐", cost: 50 },
+                { id: 3, name: "Estrella", icon: "🌟", cost: 100 },
+                { id: 4, name: "Maestro", icon: "👑", cost: 250 },
+                { id: 5, name: "Arquitecto", icon: "🏰", cost: 500 }
             ];
 
-            const SHAPES = [
-                { sides: 3, name: "Triángulo" },
-                { sides: 4, name: "Cuadrilátero" },
-                { sides: 5, name: "Pentágono" },
-                { sides: 6, name: "Hexágono" }
-            ];
-
-            // --- Lógica de Retos (2°) ---
-            function generateMission() {
-                const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-                const isRegular = Math.random() > 0.5;
-                state.currentMission = { ...shape, isRegular };
-                
-                const missionEl = document.getElementById('mission-text');
-                missionEl.innerHTML = `Dibuja un <span class="underline">${shape.name}</span> que sea <span class="italic font-black">${isRegular ? 'REGULAR' : 'IRREGULAR'}</span>.`;
-                
-                state.currentPoints = [];
-                state.isClosed = false;
-                draw();
-                updateUI();
+            function resize() {
+                canvas.width = wrapper.clientWidth;
+                canvas.height = wrapper.clientHeight;
+                render();
             }
-
-            document.getElementById('btn-new-mission').onclick = () => {
-                if(state.currentMission) state.stars += 5; // Premio pequeño por intentar
-                generateMission();
-            };
-
-            document.getElementById('btn-check-drawing').onclick = () => {
-                if (state.currentPoints.length < 3) return showMessage("¡Dibuja al menos 3 puntos!", "warning");
-                if (!state.isClosed) return showMessage("¡Une el último punto con el primero para cerrar!", "warning");
-                
-                document.getElementById('challenge-modal').style.display = 'flex';
-            };
-
-            // Selección de Tipo (Regular/Irregular) en el modal
-            document.querySelectorAll('.type-btn').forEach(btn => {
-                btn.onclick = (e) => {
-                    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-600'));
-                    btn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-600');
-                    state.selectedType = btn.dataset.type;
-                };
-            });
-
-            document.getElementById('btn-confirm-challenge').onclick = () => {
-                const guessedSides = parseInt(document.getElementById('select-shape-name').value);
-                const guessedType = state.selectedType;
-
-                if (!guessedType) return alert("Selecciona si es regular o irregular");
-
-                let success = true;
-                let reward = 0;
-
-                // Validación pedagógica
-                if (guessedSides !== state.currentPoints.length) success = false;
-                
-                if (success) {
-                    state.stars += 20;
-                    state.grade = Math.min(5.0, state.grade + 0.5);
-                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-                    showMessage("🌟 ¡EXCELENTE! Has identificado bien la figura.", "success");
-                    
-                    state.completed.push({
-                        points: [...state.currentPoints],
-                        name: (guessedType === 'regular' ? 'Regular ' : 'Irregular ') + SHAPES.find(s=>s.sides === guessedSides).name,
-                        color: '#4f46e5'
-                    });
-                    
-                    state.currentPoints = [];
-                    state.isClosed = false;
-                    state.currentMission = null;
-                    document.getElementById('mission-text').innerText = "¡Misión Cumplida! Pulsa 'Nueva Misión'.";
-                } else {
-                    state.stars += 5;
-                    showMessage("Casi... Los lados no coinciden con lo que elegiste. ¡Sigue practicando!", "warning");
-                }
-
-                document.getElementById('challenge-modal').style.display = 'none';
-                updateUI();
-                draw();
-            };
-
-            // --- Sistema de Recompensas ---
-            document.getElementById('btn-open-rewards').onclick = () => {
-                const grid = document.getElementById('stickers-grid');
-                grid.innerHTML = "";
-                document.getElementById('reward-stars').innerText = state.stars;
-
-                STICKERS.forEach(s => {
-                    const isUnlocked = state.unlockedStickers.includes(s.id);
-                    const canAfford = state.stars >= s.price;
-
-                    const div = document.createElement('div');
-                    div.className = `sticker-card p-4 rounded-2xl border-2 text-center ${isUnlocked ? 'border-pink-300 bg-pink-50' : 'border-slate-200 bg-slate-50 locked'}`;
-                    div.innerHTML = `
-                        <div class="text-4xl mb-2">${s.icon}</div>
-                        <div class="text-xs font-bold">${s.name}</div>
-                        ${!isUnlocked ? `<button class="mt-2 text-[10px] bg-indigo-600 text-white px-2 py-1 rounded" onclick="buySticker(${s.id}, ${s.price})">${s.price}⭐</button>` : '<span class="text-[10px] text-pink-500 font-bold uppercase">Obtenido</span>'}
-                    `;
-                    grid.appendChild(div);
-                });
-                document.getElementById('reward-modal').style.display = 'flex';
-            };
-
-            window.buySticker = (id, price) => {
-                if (state.stars >= price) {
-                    state.stars -= price;
-                    state.unlockedStickers.push(id);
-                    document.getElementById('btn-open-rewards').click(); // Refresh
-                    updateUI();
-                    confetti({ colors: ['#ec4899'] });
-                } else {
-                    alert("¡Necesitas más estrellas! Completa retos de dibujo.");
-                }
-            };
-
-            // --- Canvas Core ---
-            function resize() { canvas.width = wrapper.clientWidth; canvas.height = wrapper.clientHeight; draw(); }
             window.onresize = resize;
             resize();
 
+            // Interacción de Dibujo
             canvas.addEventListener('mousedown', (e) => {
-                const rect = canvas.getBoundingClientRect();
-                const worldPt = { x: (e.clientX - rect.left) - state.offset.x, y: (e.clientY - rect.top) - state.offset.y };
-
                 if (state.isClosed) return;
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
 
-                if (state.currentPoints.length > 2) {
-                    const start = state.currentPoints[0];
-                    if (Math.hypot(worldPt.x - start.x, worldPt.y - start.y) < 20) {
+                // Detectar si cierra
+                if (state.points.length >= 3) {
+                    const d = Math.hypot(x - state.points[0].x, y - state.points[0].y);
+                    if (d < 20) {
                         state.isClosed = true;
-                        draw();
+                        render();
                         return;
                     }
                 }
-
-                state.currentPoints.push(worldPt);
-                updateUI();
-                draw();
+                state.points.push({x, y});
+                document.getElementById('current-points-display').innerText = state.points.length;
+                render();
             });
 
-            function draw() {
+            // Guardar figura y ganar puntos
+            document.getElementById('btn-save-shape').onclick = () => {
+                if (!state.isClosed) {
+                    showFeedback("¡Primero une los puntos con el círculo rojo!", "border-yellow-400 text-yellow-600");
+                    return;
+                }
+
+                // Cálculo de estrellas: 10 base + 5 por cada lado extra después del triángulo
+                const starsGained = 10 + (state.points.length - 3) * 5;
+                state.stars += starsGained;
+                state.grade = Math.min(5, state.grade + 0.2);
+                
+                state.shapes.push({
+                    points: [...state.points],
+                    color: `hsl(${Math.random() * 360}, 70%, 60%)`
+                });
+
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#fbbf24', '#f59e0b', '#ffffff']
+                });
+
+                showFeedback(`⭐ ¡+${starsGained} Estrellas!<br><span class="text-sm">Figura guardada</span>`, "border-green-500 text-green-700");
+                
+                state.points = [];
+                state.isClosed = false;
+                document.getElementById('current-points-display').innerText = "0";
+                updateUI();
+                render();
+            };
+
+            function updateUI() {
+                document.getElementById('stars-count').innerText = state.stars;
+                document.getElementById('grade-display').innerText = state.grade.toFixed(1);
+            }
+
+            function render() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
-                // Cuadrícula suave
+                // Cuadrícula
                 ctx.beginPath(); ctx.strokeStyle = "#f1f5f9";
                 for(let x=0; x<canvas.width; x+=40) { ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); }
                 for(let y=0; y<canvas.height; y+=40) { ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); }
                 ctx.stroke();
 
-                // Figuras completadas
-                state.completed.forEach(poly => {
-                    ctx.beginPath(); ctx.fillStyle = poly.color + "33"; ctx.strokeStyle = poly.color;
-                    ctx.lineWidth = 3;
-                    ctx.moveTo(poly.points[0].x, poly.points[0].y);
-                    poly.points.forEach(p => ctx.lineTo(p.x, p.y));
+                // Figuras guardadas
+                state.shapes.forEach(s => {
+                    ctx.beginPath();
+                    ctx.fillStyle = s.color + "44";
+                    ctx.strokeStyle = s.color;
+                    ctx.lineWidth = 2;
+                    ctx.moveTo(s.points[0].x, s.points[0].y);
+                    s.points.forEach(p => ctx.lineTo(p.x, p.y));
                     ctx.closePath(); ctx.fill(); ctx.stroke();
                 });
 
                 // Trazo actual
-                if (state.currentPoints.length > 0) {
-                    ctx.beginPath(); ctx.strokeStyle = "#6366f1"; ctx.lineWidth = 4;
-                    if(state.isClosed) ctx.setLineDash([]); else ctx.setLineDash([5,5]);
-                    ctx.moveTo(state.currentPoints[0].x, state.currentPoints[0].y);
-                    state.currentPoints.forEach(p => ctx.lineTo(p.x, p.y));
-                    if(state.isClosed) { ctx.closePath(); ctx.fillStyle = "#6366f122"; ctx.fill(); }
-                    ctx.stroke(); ctx.setLineDash([]);
+                if (state.points.length > 0) {
+                    ctx.beginPath();
+                    ctx.setLineDash(state.isClosed ? [] : [5, 5]);
+                    ctx.strokeStyle = "#4f46e5";
+                    ctx.lineWidth = 3;
+                    ctx.moveTo(state.points[0].x, state.points[0].y);
+                    state.points.forEach(p => ctx.lineTo(p.x, p.y));
+                    if (state.isClosed) {
+                        ctx.closePath();
+                        ctx.fillStyle = "#4f46e522";
+                        ctx.fill();
+                    }
+                    ctx.stroke();
+                    ctx.setLineDash([]);
 
-                    state.currentPoints.forEach((p, i) => {
-                        ctx.beginPath(); ctx.arc(p.x, p.y, i===0?10:5, 0, Math.PI*2);
-                        ctx.fillStyle = i===0 ? "#f43f5e" : "#6366f1";
+                    state.points.forEach((p, i) => {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, i === 0 ? 8 : 4, 0, Math.PI*2);
+                        ctx.fillStyle = i === 0 ? "#ef4444" : "#4f46e5";
                         ctx.fill();
                     });
                 }
             }
 
-            function updateUI() {
-                document.getElementById('stars-count').innerText = state.stars;
-                document.getElementById('grade-display').innerText = state.grade.toFixed(1);
-                document.getElementById('current-points-count').innerText = state.currentPoints.length;
-            }
+            // Tienda de Premios
+            document.getElementById('btn-open-rewards').onclick = () => {
+                const grid = document.getElementById('stickers-grid');
+                grid.innerHTML = "";
+                document.getElementById('reward-stars').innerText = state.stars;
 
-            function showMessage(html, type) {
-                const overlay = document.getElementById('feedback-overlay');
+                PREMIOS.forEach(p => {
+                    const isUnlocked = state.unlocked.includes(p.id);
+                    const card = document.createElement('div');
+                    card.className = `p-4 rounded-3xl border-2 text-center sticker-card ${isUnlocked ? 'bg-pink-50 border-pink-200' : 'bg-slate-50 border-slate-100 locked'}`;
+                    
+                    card.innerHTML = `
+                        <div class="text-4xl mb-2 ${isUnlocked ? 'badge-anim' : ''}">${p.icon}</div>
+                        <div class="text-[10px] font-black uppercase text-slate-500">${p.name}</div>
+                        ${!isUnlocked ? `<button onclick="buyPremio(${p.id}, ${p.cost})" class="mt-2 bg-indigo-500 text-white text-[9px] px-3 py-1 rounded-full font-bold">${p.cost} ⭐</button>` : '<span class="text-[9px] text-pink-500 font-bold">¡Tuyo!</span>'}
+                    `;
+                    grid.appendChild(card);
+                });
+                document.getElementById('reward-modal').style.display = 'flex';
+            };
+
+            window.buyPremio = (id, cost) => {
+                if (state.stars >= cost) {
+                    state.stars -= cost;
+                    state.unlocked.push(id);
+                    updateUI();
+                    document.getElementById('btn-open-rewards').click();
+                    confetti({ colors: ['#ec4899', '#ffffff'] });
+                } else {
+                    alert("¡Te faltan estrellas! Sigue dibujando figuras.");
+                }
+            };
+
+            function showFeedback(html, classes) {
+                const ov = document.getElementById('feedback-overlay');
                 const msg = document.getElementById('feedback-message');
                 msg.innerHTML = html;
-                msg.className = `p-8 rounded-3xl border-8 shadow-2xl text-xl font-bold bg-white ${type==='success'?'border-green-500 text-green-700':'border-yellow-400 text-yellow-700'}`;
-                overlay.style.opacity = "1";
-                setTimeout(() => overlay.style.opacity = "0", 3000);
+                msg.className = `bg-white/90 backdrop-blur p-8 rounded-[3rem] shadow-2xl text-center border-4 font-black text-xl ${classes}`;
+                ov.style.opacity = "1";
+                setTimeout(() => ov.style.opacity = "0", 2500);
             }
 
-            document.getElementById('btn-clear-canvas').onclick = () => {
-                state.currentPoints = [];
-                state.isClosed = false;
-                updateUI();
-                draw();
-            };
-
-            document.getElementById('btn-reset-all').onclick = () => {
-                if(confirm("¿Borrar todo tu progreso?")) location.reload();
-            };
-
-            // Switch Tabs
+            // Tabs
             document.getElementById('tab-explorer').onclick = () => {
-                state.mode = 'explorer';
                 document.getElementById('controls-explorer').classList.remove('hidden');
                 document.getElementById('controls-geometry').classList.add('hidden');
                 document.getElementById('tab-explorer').className = "px-6 py-3 tab-active";
                 document.getElementById('tab-geometry').className = "px-6 py-3 text-gray-500";
             };
-
             document.getElementById('tab-geometry').onclick = () => {
-                state.mode = 'geometry';
                 document.getElementById('controls-geometry').classList.remove('hidden');
                 document.getElementById('controls-explorer').classList.add('hidden');
                 document.getElementById('tab-geometry').className = "px-6 py-3 tab-active";
                 document.getElementById('tab-explorer').className = "px-6 py-3 text-gray-500";
+            };
+
+            document.getElementById('btn-reset-all').onclick = () => {
+                if(confirm("¿Borrar todos tus dibujos?")) { state.shapes = []; state.points = []; render(); }
             };
         });
     </script>

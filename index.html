@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
-        body { touch-action: none; overflow: hidden; }
-        .canvas-container { position: relative; cursor: crosshair; background-color: #f8fafc; }
+        body { overflow: hidden; }
+        .canvas-container { position: relative; cursor: crosshair; background-color: #f8fafc; touch-action: none; }
         .tab-active { border-bottom: 4px solid #4f46e5; color: #4f46e5; font-weight: bold; }
         #reward-modal, #pets-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; }
         .pet-card { transition: all 0.2s; cursor: pointer; }
@@ -92,12 +92,20 @@
             
             <!-- Controles Modo Libre (2do-5to) -->
             <div id="controls-explorer" class="space-y-4">
-                <div class="bg-indigo-50 p-5 rounded-3xl border-2 border-indigo-100 text-center">
+                <div class="bg-indigo-50 p-5 rounded-3xl border-2 border-indigo-100 text-center relative">
                     <p class="text-xs text-indigo-500 font-black uppercase mb-1">Vértices Marcados</p>
                     <div class="text-5xl font-black text-indigo-700" id="current-points-display">0</div>
+                    <p class="text-[9px] font-bold text-slate-400 mt-2 uppercase">Tecla [Supr] para borrar el último</p>
                 </div>
 
-                <button id="btn-save-shape" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-5 rounded-3xl shadow-[0_6px_0_rgb(5,150,105)] transition-all active:translate-y-1 active:shadow-none flex flex-col items-center">
+                <div class="bg-yellow-50 p-4 rounded-3xl border-2 border-yellow-300 text-center relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-2 py-1 rounded-bl-xl shadow-sm">MISIÓN</div>
+                    <p class="text-[10px] text-yellow-700 font-bold uppercase mt-2 mb-1">Dibuja un:</p>
+                    <div class="text-2xl font-black text-yellow-600 leading-none" id="quest-target">Triángulo</div>
+                    <div class="text-[10px] font-black text-white bg-yellow-500 rounded-full inline-block px-3 py-1 mt-3 shadow-sm">Recompensa: <span id="quest-reward">50</span>⭐</div>
+                </div>
+
+                <button id="btn-save-shape" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-5 rounded-3xl shadow-[0_6px_0_rgb(5,150,105)] transition-all active:translate-y-1 active:shadow-none flex flex-col items-center mt-2">
                     <span class="text-xl">✨ ¡PINTAR FIGURA!</span>
                     <span class="text-[10px] uppercase opacity-90">Verificar y ganar estrellas</span>
                 </button>
@@ -189,18 +197,26 @@
         const ctx = canvas.getContext('2d');
         const wrapper = document.getElementById('canvas-wrapper');
         
-        let state = {
-            stars: 0,
-            grade: 0,
-            mode: 'explorer', // 'explorer' o 'geometry'
-            points: [],
-            shapes: [],
-            isClosed: false,
-            unlockedPets: [0],
-            activePet: 0,
-            centerPoint: null,
-            tempRadius: 100
+        const possibleQuests = ["Triángulo", "Cuadrilátero", "Pentágono", "Hexágono", "Octágono"];
+        
+        const defaultState = {
+            stars: 0, grade: 0, mode: 'explorer', points: [], shapes: [],
+            isClosed: false, unlockedPets: [0], activePet: 0, centerPoint: null, tempRadius: 100,
+            questTarget: 'Triángulo', questReward: 50
         };
+        const savedState = localStorage.getItem('poliLabState');
+        let state = savedState ? { ...defaultState, ...JSON.parse(savedState), mode: 'explorer', points: [], shapes: [], isClosed: false, centerPoint: null } : defaultState;
+
+        function saveState() {
+            localStorage.setItem('poliLabState', JSON.stringify({
+                stars: state.stars,
+                grade: state.grade,
+                unlockedPets: state.unlockedPets,
+                activePet: state.activePet,
+                questTarget: state.questTarget,
+                questReward: state.questReward
+            }));
+        }
 
         const MASCOTAS = [
             { id: 0, icon: "🐱", name: "Michi", cost: 0 },
@@ -244,6 +260,23 @@
         window.addEventListener('resize', resize);
         resize();
 
+        // --- Control de Teclado ---
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                if (state.mode === 'explorer' && state.points.length > 0) {
+                    if (state.isClosed) {
+                        state.isClosed = false;
+                        updatePetSpeech("¡Línea abierta de nuevo! Sigue dibujando.");
+                    } else {
+                        state.points.pop();
+                        document.getElementById('current-points-display').innerText = state.points.length;
+                        updatePetSpeech(state.points.length === 0 ? "¡Lienzo limpio!" : "Punto borrado.");
+                    }
+                    render();
+                }
+            }
+        });
+
         // --- Utilidades de Intersección ---
         function linesIntersect(p1, p2, p3, p4) {
             const det = (p2.x - p1.x) * (p4.y - p3.y) - (p4.x - p3.x) * (p2.y - p1.y);
@@ -267,22 +300,36 @@
         }
 
         // --- Manejo del Canvas ---
-        canvas.addEventListener('mousedown', (e) => {
+        function handleInput(e) {
+            if(e.type === 'touchstart') e.preventDefault(); // Prevenir scroll al tocar
             const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            let x = clientX - rect.left;
+            let y = clientY - rect.top;
 
             if (state.mode === 'explorer') {
+                // Ajuste a cuadrícula (Snap to grid, gridSize = 40) para facilitar el dibujo
+                x = Math.round(x / 40) * 40;
+                y = Math.round(y / 40) * 40;
+
                 if (state.isClosed) return;
                 if (state.points.length >= 3) {
                     const d = Math.hypot(x - state.points[0].x, y - state.points[0].y);
                     if (d < 25) {
                         state.isClosed = true;
-                        updatePetSpeech("¡Perfecto! Ahora guarda tu figura.");
+                        updatePetSpeech("¡Perfecto! Ahora guarda y pinta tu figura.");
                         render();
                         return;
                     }
                 }
+
+                if (state.points.length > 0) {
+                    const lastP = state.points[state.points.length - 1];
+                    if (lastP.x === x && lastP.y === y) return; // Evitar duplicar el mismo punto
+                }
+
                 state.points.push({x, y});
                 document.getElementById('current-points-display').innerText = state.points.length;
             } else {
@@ -291,7 +338,17 @@
                 updatePetSpeech("¡Centro marcado! Ajusta los lados y dale a Generar.");
             }
             render();
-        });
+        }
+
+        canvas.addEventListener('mousedown', handleInput);
+        canvas.addEventListener('touchstart', handleInput, { passive: false });
+
+        // --- Nombres de polígonos ---
+        const polygonNames = {
+            3: "Triángulo", 4: "Cuadrilátero", 5: "Pentágono", 6: "Hexágono", 
+            7: "Heptágono", 8: "Octágono", 9: "Eneágono", 10: "Decágono",
+            11: "Endecágono", 12: "Dodecágono"
+        };
 
         // --- Lógica de 6to Grado ---
         document.getElementById('btn-generate-regular').onclick = () => {
@@ -337,6 +394,7 @@
 
             state.stars += (n * 15);
             state.grade = Math.min(5, state.grade + 0.3);
+            saveState();
             
             confetti({ particleCount: 100, origin: { y: 0.8 } });
             showFeedback(`📐 ${n} Lados Generados<br>Área: ${area.toFixed(0)}`, "border-indigo-500 text-indigo-600");
@@ -356,26 +414,45 @@
                 return;
             }
 
-            const stars = 10 + (state.points.length - 3) * 10;
+            const pointsCount = state.points.length;
+            const shapeName = polygonNames[pointsCount] || `Polígono de ${pointsCount} lados`;
+            let stars = 10 + (pointsCount - 3) * 10;
+            
+            let isQuestComplete = (shapeName === state.questTarget);
+            if (isQuestComplete) {
+                stars += state.questReward;
+                state.questReward += 10;
+                state.questTarget = possibleQuests[Math.floor(Math.random() * possibleQuests.length)];
+                showFeedback(`⭐ ¡MISIÓN CUMPLIDA! ⭐<br><span class="text-xl">+${stars} ⭐</span>`, "border-yellow-400 text-yellow-600");
+                updatePetSpeech(`¡Completaste la misión! Eres un genio.`);
+                confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 } });
+            } else {
+                showFeedback(`✅ ¡Has dibujado un ${shapeName}!<br><span class="text-xl">+${stars} ⭐</span>`, "border-emerald-500 text-emerald-600");
+                updatePetSpeech(`¡Uau! ¡Un ${shapeName}! Has ganado ${stars} estrellas.`);
+                confetti({ particleCount: 50 });
+            }
+
             state.stars += stars;
             state.grade = Math.min(5, state.grade + 0.1);
-            state.shapes.push({ points: [...state.points], color: '#10b981' });
+            state.shapes.push({ points: [...state.points], color: isQuestComplete ? '#eab308' : '#10b981' });
+            
+            saveState();
             
             state.points = [];
             state.isClosed = false;
             document.getElementById('current-points-display').innerText = "0";
             updateUI();
             render();
-            confetti({ particleCount: 50 });
         };
 
         function render() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             // Grid
-            ctx.strokeStyle = "#f8fafc";
+            ctx.strokeStyle = "#e2e8f0";
             ctx.lineWidth = 1;
             for(let i=0; i<canvas.width; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
+            for(let j=0; j<canvas.height; j+=40) { ctx.beginPath(); ctx.moveTo(0,j); ctx.lineTo(canvas.width,j); ctx.stroke(); }
 
             // Dibujar figuras previas
             state.shapes.forEach(s => {
@@ -455,6 +532,12 @@
             document.getElementById('stars-count').innerText = state.stars;
             document.getElementById('grade-display').innerText = state.grade.toFixed(1);
             document.getElementById('pet-stars-display').innerText = state.stars;
+            
+            if (document.getElementById('quest-target')) {
+                document.getElementById('quest-target').innerText = state.questTarget;
+                document.getElementById('quest-reward').innerText = state.questReward;
+            }
+            
             updatePetDisplay();
         }
 
@@ -485,10 +568,29 @@
             MASCOTAS.forEach(p => {
                 const unlocked = state.unlockedPets.includes(p.id);
                 const active = state.activePet === p.id;
+                const canAfford = state.stars >= p.cost;
+                
                 const card = document.createElement('div');
-                card.className = `p-4 rounded-3xl border-4 pet-card text-center ${unlocked ? (active ? 'bg-orange-100 border-orange-500' : 'bg-slate-50 border-slate-200') : 'bg-slate-100 border-transparent locked'}`;
-                card.innerHTML = `<div class="text-4xl mb-2">${p.icon}</div><div class="text-[10px] font-black uppercase">${p.name}</div>${!unlocked ? `<button onclick="event.stopPropagation(); buyPet(${p.id}, ${p.cost})" class="mt-2 bg-indigo-600 text-white text-[9px] px-3 py-1 rounded-full font-bold">${p.cost}⭐</button>` : `<span class="text-[9px] font-bold">${active ? 'ACTIVO' : 'ELEGIR'}</span>`}`;
-                card.onclick = () => { if(unlocked) { state.activePet = p.id; updateUI(); document.getElementById('btn-open-pets').onclick(); } };
+                card.className = `p-4 rounded-3xl border-4 pet-card text-center ${unlocked ? (active ? 'bg-orange-100 border-orange-500' : 'bg-slate-50 border-slate-200 hover:bg-slate-100') : (canAfford ? 'bg-yellow-50 border-yellow-300 hover:bg-yellow-100' : 'bg-slate-100 border-transparent locked')}`;
+                
+                card.innerHTML = `<div class="text-4xl mb-2">${p.icon}</div>
+                                  <div class="text-[10px] font-black uppercase">${p.name}</div>
+                                  ${!unlocked ? 
+                                    `<button class="mt-2 text-white text-[10px] px-3 py-1 rounded-full font-bold shadow-sm ${canAfford ? 'bg-emerald-500' : 'bg-slate-400'}">${p.cost}⭐</button>` 
+                                    : `<span class="text-[10px] font-bold ${active ? 'text-orange-600' : 'text-slate-400'}">${active ? 'ACTIVO' : 'ELEGIR'}</span>`}`;
+                
+                // Permitir reaccionar con un solo clic en toda la tarjeta
+                card.onclick = (e) => { 
+                    e.stopPropagation();
+                    if(unlocked) { 
+                        state.activePet = p.id; 
+                        saveState(); 
+                        updateUI(); 
+                        document.getElementById('btn-open-pets').onclick(); 
+                    } else if(canAfford) {
+                        buyPet(p.id, p.cost);
+                    }
+                };
                 grid.appendChild(card);
             });
             document.getElementById('pets-modal').style.display = 'flex';
@@ -497,6 +599,7 @@
         window.buyPet = (id, cost) => {
             if (state.stars >= cost) {
                 state.stars -= cost; state.unlockedPets.push(id); state.activePet = id;
+                saveState();
                 updateUI(); document.getElementById('btn-open-pets').onclick();
                 confetti({ colors: ['#f97316'] });
             }

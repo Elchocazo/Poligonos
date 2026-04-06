@@ -233,8 +233,20 @@
             { id: 11, icon: "👽", name: "Zog", cost: 10000 },
             { id: 12, icon: "🧙", name: "Merlín", cost: 15000 },
             { id: 13, icon: "🐲", name: "Draco", cost: 25000 },
-            { id: 14, icon: "🌌", name: "Cosmos", cost: 50000 }
+            { id: 14, icon: "👨‍🏫", name: "Profe Manuel", cost: 100000 }
         ];
+
+        const MEDALLAS = [
+            { id: 1, icon: "⭐", title: "Primer Trazo", desc: "Alcanza Nivel 1.0", req: 1.0 },
+            { id: 2, icon: "📐", title: "Constructor", desc: "Alcanza Nivel 2.0", req: 2.0 },
+            { id: 3, icon: "🎨", title: "Artista", desc: "Alcanza Nivel 3.0", req: 3.0 },
+            { id: 4, icon: "🧠", title: "Matemático", desc: "Alcanza Nivel 4.0", req: 4.0 },
+            { id: 5, icon: "🏆", title: "Maestro Supremo", desc: "Alcanza Nivel 5.0", req: 5.0 },
+            { id: 6, icon: "🎓", title: "El Elegido", desc: "¡Desbloquea al Profe!", req: 99.0 }
+        ];
+
+        const COLORS = ['#f43f5e', '#a855f7', '#3b82f6', '#14b8a6', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981'];
+        function getRandomColor() { return COLORS[Math.floor(Math.random() * COLORS.length)]; }
 
         const CONSEJOS = {
             explorer: [
@@ -386,7 +398,7 @@
             // Guardar figura
             state.shapes.push({
                 points: pts,
-                color: '#4f46e5',
+                color: getRandomColor(),
                 isRegular: true,
                 center: center,
                 radius: r
@@ -434,7 +446,7 @@
 
             state.stars += stars;
             state.grade = Math.min(5, state.grade + 0.1);
-            state.shapes.push({ points: [...state.points], color: isQuestComplete ? '#eab308' : '#10b981' });
+            state.shapes.push({ points: [...state.points], color: isQuestComplete ? '#eab308' : getRandomColor() });
             
             saveState();
             
@@ -594,6 +606,22 @@
                 grid.appendChild(card);
             });
             document.getElementById('pets-modal').style.display = 'flex';
+        };
+
+        document.getElementById('btn-open-rewards').onclick = () => {
+            const grid = document.getElementById('stickers-grid');
+            grid.innerHTML = "";
+            let hasManuel = state.unlockedPets.includes(14);
+            MEDALLAS.forEach(m => {
+                let unlocked = state.grade >= m.req || (m.id === 6 && hasManuel);
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-3xl border-4 pet-card text-center ${unlocked ? 'bg-pink-50 border-pink-300' : 'bg-slate-100 border-transparent locked'}`;
+                card.innerHTML = `<div class="text-4xl mb-2">${m.icon}</div>
+                                  <div class="text-[10px] font-black uppercase text-pink-700">${m.title}</div>
+                                  <div class="text-[8px] mt-1 font-bold text-slate-500">${m.desc}</div>`;
+                grid.appendChild(card);
+            });
+            document.getElementById('reward-modal').style.display = 'flex';
         };
 
         window.buyPet = (id, cost) => {

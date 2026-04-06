@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <style>
-        body { overflow: hidden; }
-        .canvas-container { position: relative; cursor: crosshair; background-color: #f8fafc; touch-action: none; }
+        body { overflow-x: hidden; overflow-y: auto; }
+        .canvas-container { position: relative; cursor: crosshair; background-color: #f8fafc; touch-action: none; min-height: 400px; }
         .tab-active { border-bottom: 4px solid #4f46e5; color: #4f46e5; font-weight: bold; }
         #reward-modal, #pets-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; }
         .pet-card { transition: all 0.2s; cursor: pointer; }
@@ -85,7 +85,7 @@
         </div>
     </header>
 
-    <main class="flex-grow flex flex-col md:flex-row p-6 gap-6 overflow-hidden">
+    <main class="flex-grow flex flex-col md:flex-row p-6 gap-6">
         
         <!-- Sidebar -->
         <div class="w-full md:w-80 bg-white rounded-[2rem] shadow-xl p-6 flex flex-col gap-5 shrink-0 border border-slate-200 overflow-y-auto">
